@@ -98,7 +98,11 @@ resource "aws_iam_user_policy" "github_sagemaker" {
           "sagemaker:CreateProcessingJob",
           "sagemaker:DescribeProcessingJob",
           "sagemaker:StopProcessingJob",
-          "sagemaker:ListProcessingJobs"
+          "sagemaker:ListProcessingJobs",
+          "sagemaker:CreateTrainingJob",
+          "sagemaker:DescribeTrainingJob",
+          "sagemaker:StopTrainingJob",
+          "sagemaker:ListTrainingJobs"
         ]
         Resource = "*"
       },

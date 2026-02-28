@@ -1,4 +1,4 @@
-name: SageMaker Processing Pipeline
+name: SageMaker Processing + Training Pipeline
 
 on:
   workflow_run:
@@ -12,9 +12,11 @@ env:
   ECR_REPOSITORY: practica-ci-cd
   S3_INPUT: s3://practica.mlops.2026/ejemplo.studio/
   S3_OUTPUT: s3://practica.mlops.2026/ejemplo.studio/processed/
+  S3_MODELS: s3://practica.mlops.2026/ejemplo.studio/models/
   SAGEMAKER_ROLE_ARN: arn:aws:iam::421041021233:role/sagemaker-execution-practica-ci-cd
 
 jobs:
+  # ── Job 1: Processing ───────────────────────────────────
   run-processing-job:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
@@ -54,7 +56,7 @@ jobs:
             --output-s3 ${{ env.S3_OUTPUT }} \
             --instance-type ml.t3.medium
 
-      - name: Create summary
+      - name: Create processing summary
         if: always()
         run: |
           echo "## SageMaker Processing Job 🔬" >> $GITHUB_STEP_SUMMARY
@@ -65,3 +67,55 @@ jobs:
           echo "| Input S3  | \`${{ env.S3_INPUT }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Output S3 | \`${{ env.S3_OUTPUT }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| Instance  | \`ml.t3.medium\` |" >> $GITHUB_STEP_SUMMARY
+
+  # ── Job 2: Training (runs AFTER processing) ─────────────
+  run-training-job:
+    needs: run-processing-job
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install boto3
+        run: pip install boto3
+
+      - name: Launch SageMaker Training Job
+        id: training
+        run: |
+          python scripts/launch_training_job.py \
+            --image ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:train-latest \
+            --role ${{ env.SAGEMAKER_ROLE_ARN }} \
+            --input-s3 ${{ env.S3_OUTPUT }} \
+            --output-s3 ${{ env.S3_MODELS }} \
+            --instance-type ml.m5.large
+
+      - name: Create training summary
+        if: always()
+        run: |
+          echo "## SageMaker Training Job 🏋️" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Campo | Valor |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | \`${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:train-latest\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Input S3 (processed) | \`${{ env.S3_OUTPUT }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Output S3 (model)    | \`${{ env.S3_MODELS }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Instance  | \`ml.m5.large\` |" >> $GITHUB_STEP_SUMMARY
