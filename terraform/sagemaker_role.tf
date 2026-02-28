@@ -29,15 +29,23 @@ resource "aws_iam_role_policy" "sagemaker_s3" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "S3Access"
+        Sid    = "S3ListBucket"
         Effect = "Allow"
         Action = [
-          "s3:GetObject",
-          "s3:PutObject",
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::practica.mlops.2026",
+          "arn:aws:s3:::practica.mlops.2026"
+        ]
+      },
+      {
+        Sid    = "S3ReadWriteObjects"
+        Effect = "Allow"
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject"
+        ]
+        Resource = [
           "arn:aws:s3:::practica.mlops.2026/*"
         ]
       }
