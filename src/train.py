@@ -158,7 +158,9 @@ def train_model(model_type='random_forest', val_split=0.2, cv_folds=5):
     return metrics
 
 
-if __name__ == '__main__':
+def main():
+    import traceback
+    
     parser = argparse.ArgumentParser(description='Train Titanic survival prediction model')
     parser.add_argument('--model', type=str, default='random_forest',
                         choices=['random_forest', 'logistic_regression', 'gradient_boosting'],
@@ -168,10 +170,43 @@ if __name__ == '__main__':
     parser.add_argument('--cv-folds', type=int, default=5,
                         help='Number of cross-validation folds')
     
-    args = parser.parse_args()
+    # SageMaker passes hyperparams as additional args
+    args, _ = parser.parse_known_args()
     
-    train_model(
-        model_type=args.model,
-        val_split=args.val_split,
-        cv_folds=args.cv_folds
-    )
+    # Diagnostic logging
+    print("\n" + "="*50)
+    print("DIAGNOSTIC LOGGING")
+    print(f"Current Environment: {dict(os.environ)}")
+    
+    input_paths = ['/opt/ml/input/data/train', '/opt/ml/input/data/', '/app/data/raw']
+    for p in input_paths:
+        path = Path(p)
+        if path.exists():
+            print(f"Path {p} exists. Content: {list(path.glob('*'))}")
+        else:
+            print(f"Path {p} does NOT exist.")
+    print("="*50 + "\n")
+
+    try:
+        train_model(
+            model_type=args.model,
+            val_split=args.val_split,
+            cv_folds=args.cv_folds
+        )
+    except Exception as e:
+        # Write failure message for SageMaker
+        failure_path = Path('/opt/ml/output/failure')
+        error_msg = f"TRAINING FAILURE: {str(e)}\n{traceback.format_exc()}"
+        print(f"\nCRITICAL ERROR:\n{error_msg}")
+        
+        try:
+            with open(failure_path, 'w') as f:
+                f.write(error_msg)
+        except Exception as write_err:
+            print(f"Could not write to failure file: {write_err}")
+            
+        sys.exit(2)  # Maintain exit code 2 but with logged context
+
+
+if __name__ == '__main__':
+    main()
