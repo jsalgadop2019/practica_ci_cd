@@ -13,7 +13,7 @@ env:
   S3_INPUT: s3://practica.mlops.2026/ejemplo.studio/
   S3_OUTPUT: s3://practica.mlops.2026/ejemplo.studio/processed/
   S3_MODELS: s3://practica.mlops.2026/ejemplo.studio/models/
-  SAGEMAKER_ROLE_ARN: arn:aws:iam::421041021233:role/sagemaker-execution-practica-ci-cd
+  SAGEMAKER_ROLE_ARN: arn:aws:iam::245805261105:role/sagemaker-execution-practica-ci-cd
 
 jobs:
   # ── Job 1: Processing ───────────────────────────────────
