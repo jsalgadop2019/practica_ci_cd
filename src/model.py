@@ -10,6 +10,15 @@ from pathlib import Path
 
 def get_model_path():
     """Get path for saving/loading models."""
+    import os
+    sm_model_dir = os.environ.get('SM_MODEL_DIR')
+    if sm_model_dir:
+        return Path(sm_model_dir)
+        
+    fallback_dir = Path('/opt/ml/model')
+    if fallback_dir.exists():
+        return fallback_dir
+        
     project_root = Path(__file__).parent.parent
     model_path = project_root / 'models'
     model_path.mkdir(parents=True, exist_ok=True)

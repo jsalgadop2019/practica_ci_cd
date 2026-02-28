@@ -4,6 +4,8 @@ Training script for Titanic survival prediction model.
 import sys
 import json
 import argparse
+import os
+import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import cross_val_score
 import numpy as np
@@ -34,23 +36,48 @@ def train_model(model_type='random_forest', val_split=0.2, cv_folds=5):
     
     # Load data
     print("\n1. Loading data...")
-    train_df, test_df = load_titanic_data()
-    print(f"   ✓ Loaded {len(train_df)} training samples")
-    if test_df is not None:
-        print(f"   ✓ Loaded {len(test_df)} test samples")
+    sm_channel_train = os.environ.get('SM_CHANNEL_TRAIN')
+    input_dir = Path(sm_channel_train) if sm_channel_train else Path('/opt/ml/input/data/train')
     
-    # Preprocess data
-    print("\n2. Preprocessing data...")
-    processed = preprocess_data(train_df, test_df, val_split=val_split)
-    X_train = processed['X_train']
-    y_train = processed['y_train']
-    X_val = processed['X_val']
-    y_val = processed['y_val']
-    
-    print(f"   ✓ Training set: {X_train.shape}")
-    if X_val is not None:
-        print(f"   ✓ Validation set: {X_val.shape}")
-    print(f"   ✓ Features: {X_train.shape[1]}")
+    if input_dir.exists() and list(input_dir.glob('*.csv')):
+        print(f"   ✓ Running in SageMaker, loading preprocessed data from {input_dir}")
+        train_df = pd.read_csv(input_dir / 'train.csv')
+        y_train = train_df['Survived']
+        X_train = train_df.drop('Survived', axis=1)
+        print(f"   ✓ Loaded {len(train_df)} training samples")
+        
+        X_val = None
+        y_val = None
+        if (input_dir / 'validation.csv').exists():
+            val_df = pd.read_csv(input_dir / 'validation.csv')
+            y_val = val_df['Survived']
+            X_val = val_df.drop('Survived', axis=1)
+            print(f"   ✓ Validation set: {X_val.shape}")
+            
+        test_df = None
+        if (input_dir / 'test.csv').exists():
+            test_df = pd.read_csv(input_dir / 'test.csv')
+            print(f"   ✓ Loaded {len(test_df)} test samples")
+            
+    else:
+        # Local execution fallback
+        train_df, test_df = load_titanic_data()
+        print(f"   ✓ Loaded {len(train_df)} training samples")
+        if test_df is not None:
+            print(f"   ✓ Loaded {len(test_df)} test samples")
+        
+        # Preprocess data
+        print("\n2. Preprocessing data...")
+        processed = preprocess_data(train_df, test_df, val_split=val_split)
+        X_train = processed['X_train']
+        y_train = processed['y_train']
+        X_val = processed['X_val']
+        y_val = processed['y_val']
+        
+        print(f"   ✓ Training set: {X_train.shape}")
+        if X_val is not None:
+            print(f"   ✓ Validation set: {X_val.shape}")
+        print(f"   ✓ Features: {X_train.shape[1]}")
     
     # Create model
     print(f"\n3. Creating model ({model_type})...")
@@ -109,9 +136,15 @@ def train_model(model_type='random_forest', val_split=0.2, cv_folds=5):
     }
     
     # Save metrics to file
-    project_root = Path(__file__).parent.parent
-    reports_path = project_root / 'reports'
-    reports_path.mkdir(parents=True, exist_ok=True)
+    sm_model_dir = os.environ.get('SM_MODEL_DIR')
+    if sm_model_dir:
+        reports_path = Path(sm_model_dir)
+    elif Path('/opt/ml/model').exists():
+        reports_path = Path('/opt/ml/model')
+    else:
+        project_root = Path(__file__).parent.parent
+        reports_path = project_root / 'reports'
+        reports_path.mkdir(parents=True, exist_ok=True)
     
     metrics_file = reports_path / 'training_metrics.json'
     with open(metrics_file, 'w') as f:
