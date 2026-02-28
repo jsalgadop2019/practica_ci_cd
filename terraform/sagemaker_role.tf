@@ -35,7 +35,7 @@ resource "aws_iam_role_policy" "sagemaker_s3" {
           "s3:ListBucket"
         ]
         Resource = [
-          "arn:aws:s3:::practica.mlops.2026"
+          aws_s3_bucket.ml_data_bucket.arn
         ]
       },
       {
@@ -46,7 +46,7 @@ resource "aws_iam_role_policy" "sagemaker_s3" {
           "s3:PutObject"
         ]
         Resource = [
-          "arn:aws:s3:::practica.mlops.2026/*"
+          "${aws_s3_bucket.ml_data_bucket.arn}/*"
         ]
       }
     ]

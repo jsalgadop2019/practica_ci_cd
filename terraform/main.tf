@@ -56,6 +56,23 @@ resource "aws_ecr_lifecycle_policy" "ml_repo_policy" {
 }
 
 # ─────────────────────────────────────────────
+# S3 Data Bucket
+# ─────────────────────────────────────────────
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_s3_bucket" "ml_data_bucket" {
+  bucket        = "practica-mlops-data-${data.aws_caller_identity.current.account_id}"
+  force_destroy = true
+
+  tags = {
+    Project     = "practica-ci-cd"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+# ─────────────────────────────────────────────
 # IAM User para GitHub Actions
 # ─────────────────────────────────────────────
 

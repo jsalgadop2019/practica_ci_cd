@@ -28,3 +28,8 @@ output "aws_secret_access_key" {
   value       = aws_iam_access_key.github_actions.secret
   sensitive   = true
 }
+
+output "s3_bucket_name" {
+  description = "Nombre del bucket S3 de datos"
+  value       = aws_s3_bucket.ml_data_bucket.bucket
+}

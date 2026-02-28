@@ -10,9 +10,10 @@ on:
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: practica-ci-cd
-  S3_INPUT: s3://practica.mlops.2026/ejemplo.studio/
-  S3_OUTPUT: s3://practica.mlops.2026/ejemplo.studio/processed/
-  S3_MODELS: s3://practica.mlops.2026/ejemplo.studio/models/
+  S3_BUCKET: practica-mlops-data-245805261105
+  S3_INPUT: s3://practica-mlops-data-245805261105/ejemplo.studio/
+  S3_OUTPUT: s3://practica-mlops-data-245805261105/ejemplo.studio/processed/
+  S3_MODELS: s3://practica-mlops-data-245805261105/ejemplo.studio/models/
   SAGEMAKER_ROLE_ARN: arn:aws:iam::245805261105:role/sagemaker-execution-practica-ci-cd
 
 jobs:
@@ -44,8 +45,17 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install boto3
-        run: pip install boto3
+      - name: Install dependencies
+        run: |
+          pip install boto3 pandas seaborn setuptools
+
+      - name: Download and prepare dataset
+        run: |
+          python scripts/download_data.py
+
+      - name: Upload raw data to S3
+        run: |
+          aws s3 cp data/raw/ ${{ env.S3_INPUT }} --recursive
 
       - name: Launch SageMaker Processing Job
         id: processing
