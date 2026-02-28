@@ -58,23 +58,53 @@ Proyecto completo de Machine Learning para predecir la supervivencia de pasajero
 
 ## 🏗️ Arquitectura del Pipeline
 
-```
-Push a main
-    │
-    ├─► CI (ci.yml)                    → flake8 + pytest (Python 3.9, 3.10, 3.11)
-    │
-    └─► docker-publish.yml
-            │  Construye imagen processing  ──► ECR :processing-latest
-            │  Construye imagen train       ──► ECR :train-latest
-            │
-            └─► sagemaker-pipeline.yml  (workflow_run trigger)
-                    │
-                    ├─ Lee datos crudos de S3
-                    ├─ Lanza SageMaker Processing Job
-                    │      (usa imagen processing de ECR)
-                    └─ Guarda train/val/test.csv  ──► S3
+```mermaid
+graph TD
+    subgraph "GitHub Platform"
+        Repo["GitHub Repository (Code & Workflows)"]
+        Secrets["GitHub Secrets (AWS Credentials)"]
+    end
 
-                    🚧 Training Job  ← Ejercicio para alumnos
+    subgraph "GitHub Actions CI/CD"
+        Action1["Docker Build & Publish"]
+        Action2["SageMaker Pipeline Runner"]
+        Downloader["Python Script: download_data.py"]
+    end
+
+    subgraph "AWS Cloud (Infrastructure)"
+        ECR["Amazon ECR (Docker Images)"]
+        S3["Amazon S3 (Data Bucket)"]
+        
+        subgraph "Amazon SageMaker"
+            ProcJob["Processing Job (Python src/process.py)"]
+            TrainJob["Training Job (Python src/train.py)"]
+        end
+    end
+
+    %% Flow connections
+    Repo -->|Trigger| Action1
+    Repo -->|Trigger| Action2
+    Secrets -.->|Auth| Action1
+    Secrets -.->|Auth| Action2
+
+    %% Docker Stage
+    Action1 -->|Push Image| ECR
+
+    %% Data Staging
+    Action2 --> Downloader
+    Downloader -->|CSV files local| Action2
+    Action2 -->|Upload raw/| S3
+
+    %% SageMaker Stages
+    ECR -->|Pull Image| ProcJob
+    ECR -->|Pull Image| TrainJob
+    
+    S3 <==>|Read Raw / Write Processed| ProcJob
+    S3 <==>|Read Processed / Write Models| TrainJob
+    
+    %% Execution Context
+    ProcJob -.->|Failure Report| S3
+    TrainJob -.->|Failure Report/Metrics| S3
 ```
 
 ## ☁️ Infraestructura con Terraform
@@ -489,33 +519,14 @@ El proyecto genera automáticamente:
 
 - **joblib** - Serialización de modelos
 
-## 🎓 Ejercicio para Alumnos
+## ✅ Pipeline de Entrenamiento Finalizado
 
-> [!IMPORTANT]
-> Esta sección describe la parte **pendiente** que deberás completar como ejercicio.
+El ejercicio de entrenamiento en SageMaker ha sido completado e integrado en el pipeline automáticamente.
 
-El pipeline actual procesa los datos con SageMaker y los deja listos en S3. El siguiente paso es **lanzar un SageMaker Training Job** que tome esos datos procesados y entrene el modelo.
-
-### Lo que tienes disponible
-
-- ✅ Imagen Docker `train-latest` ya publicada en ECR
-- ✅ Script `src/train.py` como entrypoint del contenedor
-- ✅ Datos procesados en `s3://practica.mlops.2026/ejemplo.studio/processed/`
-- ✅ IAM Role `sagemaker-execution-practica-ci-cd` con los permisos necesarios
-
-### Tu tarea
-
-1. **Crear `scripts/launch_training_job.py`** — similar a `launch_processing_job.py` pero usando `boto3` con `create_training_job()`. El job debe:
-   - Leer los CSVs procesados de S3 (`/opt/ml/input/data/train/`)
-   - Guardar el modelo entrenado en S3 (`/opt/ml/model/`)
-
-2. **Agregar un paso en `sagemaker-pipeline.yml`** para lanzar el Training Job después del Processing Job.
-
-### Recursos útiles
-
-- [boto3 SageMaker Training Job docs](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_training_job.html)
-- Script de referencia: [`scripts/launch_processing_job.py`](scripts/launch_processing_job.py)
-- Workflow de referencia: [`.github/workflows/sagemaker-pipeline.yml`](.github/workflows/sagemaker-pipeline.yml)
+- ✅ **Creación de `scripts/launch_training_job.py`** — Usa `boto3` para disparar el entrenamiento.
+- ✅ **Encadenamiento en `sagemaker-pipeline.yml`** — El entrenamiento corre automáticamente tras el procesamiento.
+- ✅ **Adaptación de Scripts** — `src/train.py` y `src/model.py` ahora leen y guardan datos en las rutas de SageMaker.
+- ✅ **S3 Data Bucket** — Se migró a un bucket propio para evitar problemas de permisos.
 
 ## 🤝 Contribuir
 
